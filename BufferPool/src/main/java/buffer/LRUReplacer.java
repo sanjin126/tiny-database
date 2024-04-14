@@ -13,6 +13,7 @@ import java.util.logging.Logger;
  *  LRUReplacer implements the lru replacement policy, which approximates the Least Recently Used policy.
  *
  */
+// TODO 修改为细粒度的锁
 public class LRUReplacer implements Replacer{
     private final Logger logger = Logger.getLogger(LRUReplacer.class.getName());
     private int size;
@@ -90,7 +91,7 @@ public class LRUReplacer implements Replacer{
 
     // 返回frame_id
     @Override
-    public Optional<Integer> victim() {
+    public synchronized Optional<Integer> victim() {
         Optional<LinkedDeque<Integer>.Node> last = victimList.getLast();
         if (last.isPresent()) {
             cache.remove(last.get().item);
