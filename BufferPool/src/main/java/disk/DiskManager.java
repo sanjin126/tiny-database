@@ -8,7 +8,7 @@ public class DiskManager { //TODO 待实现
      * @param page_id id of the page
      * @param page_data raw page data
      */
-    public void writePage(int page_id, char[] page_data) {
+    public void writePage(int page_id, byte[] page_data) {
 
     }
 
@@ -18,9 +18,9 @@ public class DiskManager { //TODO 待实现
      * @param[out] page_data output buffer
      * @return the data be read from disk
      */
-    public char[] readPage(int page_id) {
-        char[] ret = new char[DBConfig.BUSTUB_PAGE_SIZE];
-        char[] src = "A test string.".toCharArray();
+    public byte[] readPage(int page_id) {
+        byte[] ret = new byte[DBConfig.BUSTUB_PAGE_SIZE];
+        byte[] src = "A test string.".getBytes();
         System.arraycopy(src, 0, ret, 0, src.length);
         return ret;
     }

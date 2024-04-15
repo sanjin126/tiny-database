@@ -33,13 +33,13 @@ public class DiskScheduler {
          *   1. being read into from disk (on a read).
          *   2. being written out to disk (on a write).
          */
-        char[] data;
+        byte[] data;
         /** ID of the page being read from / written to disk. */
         int pageId;
         /** Callback used to signal to the request issuer when the request has been completed. */
         Future<Boolean> callback;
 
-        public DiskRequest(boolean isWrite, char[] data, int pageId, Future<Boolean> callback) {
+        public DiskRequest(boolean isWrite, byte[] data, int pageId, Future<Boolean> callback) {
             this.isWrite = isWrite;
             this.data = data;
             this.pageId = pageId;
@@ -125,7 +125,7 @@ public class DiskScheduler {
         if (request.isWrite) {
             diskManager.writePage(request.pageId, request.data);
         } else {
-            char[] page = diskManager.readPage(request.pageId);
+            byte[] page = diskManager.readPage(request.pageId);
             // 不能直接替换request的data为page 而应该复制
             System.arraycopy(page, 0, request.data, 0, request.data.length);
         }

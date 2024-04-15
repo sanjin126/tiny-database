@@ -6,4 +6,10 @@ public class ArrayUtils {
             arr[i] = Character.MIN_VALUE;
         }
     }
+
+    public static void makeEmpty(byte[] arr) {
+        for (int i = 0; i < arr.length; i++) {
+            arr[i] = 0;
+        }
+    }
 }

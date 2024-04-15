@@ -38,13 +38,13 @@ public class TestDiskScheduler {
 //    }
     @Test
     public void testScheduleWriteReadPageTest() throws ExecutionException, InterruptedException {
-        char[] buf = new char[BUSTUB_PAGE_SIZE];
-        char[] data = new char[BUSTUB_PAGE_SIZE];
+        byte[] buf = new byte[BUSTUB_PAGE_SIZE];
+        byte[] data = new byte[BUSTUB_PAGE_SIZE];
 
         DiskManager diskManager = new DiskManager(); //TODO
         DiskScheduler diskScheduler = new DiskScheduler(diskManager);
 
-        char[] testArray = "A test string.".toCharArray();
+        byte[] testArray = "A test string.".getBytes();
         for (int i = 0; i < testArray.length; i++) {
             data[i] = testArray[i];
         }

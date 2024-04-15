@@ -17,7 +17,7 @@ public class Page {
     /** The actual data that is stored within a page. */
     // Usually this should be stored as `char data_[BUSTUB_PAGE_SIZE]{};`. But to enable ASAN to detect page overflow,
     // we store it as a ptr.
-    private final char[] data = new char[DBConfig.BUSTUB_PAGE_SIZE];
+    private final byte[] data = new byte[DBConfig.BUSTUB_PAGE_SIZE];
     /** The ID of this page. */
     private int pageId = INVALID_PAGE_ID;
     /** The pin count of this page. */
@@ -35,7 +35,7 @@ public class Page {
         this.rwlock = new ReentrantReadWriteLock(); //这里使用的可重入的读写锁的实现
     }
 
-    public char[] getData() {
+    public byte[] getData() {
         return data;
     }
 
@@ -90,7 +90,7 @@ public class Page {
      * 将buf复制到data，而非直接替换
      * @param buf
      */
-    public void setData(char[] buf) {
+    public void setData(byte[] buf) {
         assert buf.length == DBConfig.BUSTUB_PAGE_SIZE;
         System.arraycopy(buf, 0, data, 0, DBConfig.BUSTUB_PAGE_SIZE);
     }
