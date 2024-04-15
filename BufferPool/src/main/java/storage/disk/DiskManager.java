@@ -1,4 +1,4 @@
-package disk;
+package storage.disk;
 
 import config.DBConfig;
 

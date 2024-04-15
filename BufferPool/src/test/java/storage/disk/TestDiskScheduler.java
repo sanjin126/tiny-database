@@ -1,7 +1,5 @@
 package storage.disk;
 
-import disk.DiskManager;
-import disk.DiskScheduler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -1,4 +1,4 @@
-package disk;
+package storage.page;
 
 import config.DBConfig;
 import util.ArrayUtils;

@@ -1,10 +1,8 @@
-package disk;
+package storage.disk;
 
 import impletation.CustomChannel;
 import impletation.CustomChannelImpl;
 
-import java.nio.channels.Channel;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;

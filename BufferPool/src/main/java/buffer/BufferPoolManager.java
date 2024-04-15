@@ -1,9 +1,9 @@
 package buffer;
 
-import config.DBConfig;
-import disk.DiskManager;
-import disk.DiskScheduler;
-import disk.Page;
+import storage.disk.DiskManager;
+import storage.disk.DiskScheduler;
+import storage.page.BasicPageGuard;
+import storage.page.Page;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -81,10 +81,10 @@ public class BufferPoolManager {
      * so that the replacer wouldn't evict the frame before the buffer pool manager "Unpin"s it.
      * Also, remember to record the access history of the frame in the replacer for the lru-k algorithm to work.
      *
-     * <del>@param[out] page_id id of created page<del/>
+     * <del>@param[out] page_id id of created page<del/> 由于java无法操作指针类型，所以对于pageId我们通过返回Page 而携带id
      * @return nullptr if no new pages could be created, otherwise pointer to new page
      */
-    Page newPage() throws ExecutionException, InterruptedException {
+    public Page newPage() throws ExecutionException, InterruptedException {
         Integer availableFrameId;
         // 先检查freeList是否可用
         if (freeList.size() > 0) {
@@ -97,7 +97,7 @@ public class BufferPoolManager {
             Integer frameIdOfVictimer = optional.get();
             Page page = pages[frameIdOfVictimer]; // 需要被替换的页
             if (page.isDirty()) { //需要写回
-                FlushPage(page.getPageId());
+                flushPage(page.getPageId());
             }
             pageTable.remove(page.getPageId()); //需要移除
             availableFrameId = frameIdOfVictimer;
@@ -123,7 +123,12 @@ public class BufferPoolManager {
      * @param[out] page_id, the id of the new page
      * @return BasicPageGuard holding a new page
      */
-//    auto NewPageGuarded(page_id_t *page_id) -> BasicPageGuard;
+    BasicPageGuard NewPageGuarded() throws ExecutionException, InterruptedException {
+        Page page = newPage();
+        if (Objects.isNull(page))
+            return null;
+        return new BasicPageGuard(this, page);
+    }
 
     /**
      * TODO(P1): Add implementation
@@ -142,7 +147,7 @@ public class BufferPoolManager {
      * @param access_type type of access to the page, only needed for leaderboard tests.
      * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
      */
-    Page FetchPage(int page_id) throws ExecutionException, InterruptedException {
+    public Page fetchPage(int page_id) throws ExecutionException, InterruptedException {
         if (pageTable.containsKey(page_id)) {
             Integer frameId = pageTable.get(page_id);
             return pages[frameId];
@@ -160,7 +165,7 @@ public class BufferPoolManager {
             Integer frameIdOfVictimer = optional.get();
             Page page = pages[frameIdOfVictimer]; // 需要被替换的页
             if (page.isDirty()) { //需要写回
-                FlushPage(page.getPageId());
+                flushPage(page.getPageId());
             }
             pageTable.remove(page.getPageId());
             availableFrameId = frameIdOfVictimer;
@@ -193,9 +198,26 @@ public class BufferPoolManager {
      * @param page_id, the id of the page to fetch
      * @return PageGuard holding the fetched page
      */
-//    auto FetchPageBasic(page_id_t page_id) -> BasicPageGuard;
-//    auto FetchPageRead(page_id_t page_id) -> ReadPageGuard;
-//    auto FetchPageWrite(page_id_t page_id) -> WritePageGuard;
+    BasicPageGuard fetchPageBasic(int page_id) throws ExecutionException, InterruptedException {
+        Page page = fetchPage(page_id);
+        if (Objects.isNull(page))
+            return null;
+        return new BasicPageGuard(this, page);
+    }
+    BasicPageGuard.ReadPageGuard FetchPageRead(int page_id) throws ExecutionException, InterruptedException {
+        Page page = fetchPage(page_id);
+        if (Objects.isNull(page))
+            return null;
+        page.rLatch(); //获取读锁
+        return new BasicPageGuard.ReadPageGuard(this, page);
+    }
+    BasicPageGuard.WritePageGuard FetchPageWrite(int page_id) throws ExecutionException, InterruptedException {
+        Page page = fetchPage(page_id);
+        if (Objects.isNull(page))
+            return null;
+        page.wLatch(); //获取写锁
+        return new BasicPageGuard.WritePageGuard(this, page); //因为其实例化不能依靠BasicPageGuard的实例，所以需要为static
+    }
 
     /**
      * TODO(P1): Add implementation
@@ -211,7 +233,7 @@ public class BufferPoolManager {
      * @param access_type type of access to the page, only needed for leaderboard tests.
      * @return false if the page is not in the page table or its pin count is <= 0 before this call, true otherwise
      */
-    boolean UnpinPage(int page_id, boolean is_dirty) {
+    public boolean unpinPage(int page_id, boolean is_dirty) {
         if (checkIfPageNotExist(page_id))
             return false;
         Page page = getPage(page_id);
@@ -224,6 +246,8 @@ public class BufferPoolManager {
         page.rUnLatch();
         page.wLatch();
         {
+            if (is_dirty)
+                page.setDirty(true);
             page.decrPinCount();
             if (page.getPinCount() == 0)
                 replacer.unpin(pageTable.get(page_id)); //If the pin count reaches 0, the frame should be evictable by the replacer.
@@ -243,7 +267,7 @@ public class BufferPoolManager {
      * @param page_id id of page to be flushed, cannot be INVALID_PAGE_ID
      * @return false if the page could not be found in the page table, true otherwise
      */
-    boolean FlushPage(int pageId) throws ExecutionException, InterruptedException {
+    public boolean flushPage(int pageId) throws ExecutionException, InterruptedException {
         if (checkIfPageNotExist(pageId))
             return false;
         Page page = getPage(pageId);
@@ -279,12 +303,12 @@ public class BufferPoolManager {
      *
      * @brief Flush all the pages in the buffer pool to disk.
      */
-    void flushAllPages() throws ExecutionException, InterruptedException {
+    public void flushAllPages() throws ExecutionException, InterruptedException {
         lock.lock(); //TODO 是否可以切换为pageTable的monitor锁
         try {
             //pageTable不是线程安全的
             for (Integer pageId : pageTable.keySet()) {
-                FlushPage(pageId);
+                flushPage(pageId);
             }
         } finally {
             lock.unlock();
@@ -304,7 +328,7 @@ public class BufferPoolManager {
      * @param page_id id of page to be deleted
      * @return false if the page exists but could not be deleted, true if the page didn't exist or deletion succeeded
      */
-    boolean deletePage(int page_id) {
+    public boolean deletePage(int page_id) {
         if (checkIfPageNotExist(page_id)) {
             return true;
         }
@@ -328,7 +352,7 @@ public class BufferPoolManager {
      * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
      * @return the id of the allocated page
      */
-    int allocatePage() { //TODO
+    private int allocatePage() { //TODO
         lock.lock();
         try {
             return nextPageId.getAndIncrement();
@@ -341,7 +365,7 @@ public class BufferPoolManager {
      * @brief Deallocate a page on disk. Caller should acquire the latch before calling this function.
      * @param page_id id of the page to deallocate
      */
-    void deallocatePage(int page_id) {
+    private void deallocatePage(int page_id) {
         // This is a no-nop right now without a more complex data structure to track deallocated pages
     }
 }
