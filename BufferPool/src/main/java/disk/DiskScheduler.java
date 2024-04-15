@@ -126,6 +126,7 @@ public class DiskScheduler {
             diskManager.writePage(request.pageId, request.data);
         } else {
             char[] page = diskManager.readPage(request.pageId);
+            // 不能直接替换request的data为page 而应该复制
             System.arraycopy(page, 0, request.data, 0, request.data.length);
         }
         // 设置此次操作的返回值，因为外部线程会调用Future#get从而阻塞
