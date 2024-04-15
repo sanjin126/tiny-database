@@ -44,6 +44,12 @@ public class BasicPageGuard{
         }
     }
 
+    private static void checkIfBasicPageGuardValid(BasicPageGuard basicPageGuard) {
+        if (Objects.isNull(basicPageGuard.bufferPoolManager) || Objects.isNull(basicPageGuard.page)) {
+            basicPageGuard.logger.info("此pageGuard已经不可以使用");
+        }
+    }
+
     /** TODO(P1): Add implementation
      *
      * @brief Upgrade a BasicPageGuard to a ReadPageGuard
@@ -113,7 +119,7 @@ public class BasicPageGuard{
          * want to release these resources.
          */
         public void drop() {
-            checkIfBasicPageGuardValid();
+            checkIfBasicPageGuardValid(basicPageGuard);
             //首先 释放读锁
             basicPageGuard.page.rUnLatch();
             // 接着清理basicPageGuard
@@ -151,7 +157,7 @@ public class BasicPageGuard{
          * want to release these resources.
          */
         public void drop() {
-            checkIfBasicPageGuardValid();
+            checkIfBasicPageGuardValid(basicPageGuard);
             // 必须先释放写锁，再drop，因为basicPageGuard drop之后，会删除page的引用
             basicPageGuard.page.wUnLatch();
             basicPageGuard.drop();
