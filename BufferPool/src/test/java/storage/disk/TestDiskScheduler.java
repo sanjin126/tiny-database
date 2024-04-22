@@ -39,7 +39,7 @@ public class TestDiskScheduler {
         byte[] buf = new byte[BUSTUB_PAGE_SIZE];
         byte[] data = new byte[BUSTUB_PAGE_SIZE];
 
-        DiskManager diskManager = new DiskManager(); //TODO
+        DiskManager diskManager = new DiskManager(""); //TODO
         DiskScheduler diskScheduler = new DiskScheduler(diskManager);
 
         byte[] testArray = "A test string.".getBytes();

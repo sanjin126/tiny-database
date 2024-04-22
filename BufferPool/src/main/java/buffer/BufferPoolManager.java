@@ -177,6 +177,9 @@ public class BufferPoolManager {
         // 从disk中read数据到buffer中
 //        char[] data = new char[DBConfig.BUSTUB_PAGE_SIZE];
         Future<Boolean> future = DiskScheduler.createFuture();
+        /**
+         * @see DiskScheduler#processRequest(Optional) 
+         */
         diskScheduler.schedule(new DiskScheduler.DiskRequest(false, availablePage.getData(), page_id, future));
         assert future.get() == true;
 //        availablePage.setData(data); //在request中直接复制
