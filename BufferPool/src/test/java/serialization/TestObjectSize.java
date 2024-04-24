@@ -35,7 +35,7 @@ public class TestObjectSize {
         // 获取一个新的对象后，先进行init
         bucketPage.init();
         try ( ByteArrayOutputStream bos = new ByteArrayOutputStream();
-              ObjectOutputStream oos = new ObjectOutputStream(bos)
+              ObjectOutputStream oos = new MyOOS(bos)
         ) {
             oos.writeObject(bucketPage);
             Assertions.assertEquals(HTableBucketArraySize(sizeOfKeyType + sizeOfValType), bos.size());

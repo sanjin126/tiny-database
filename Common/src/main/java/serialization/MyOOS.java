@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
+import java.util.function.Function;
 
 /**
  * 生成的byte数组的大小 = 非static非transient的field类型size总和
@@ -106,19 +107,18 @@ public class MyOOS extends ObjectOutputStream {
     private void writeSerialData(Object obj, boolean processingArray) throws IOException {
         Class<?> superclass = obj.getClass().getSuperclass();
         if ( superclass != null && !superclass.getName().equals(Object.class.getName())) {
-            defaultWriteFields(obj, processingArray, (c)->c.getSuperclass().getDeclaredFields());
+            defaultWriteFields(obj, processingArray, c -> c.getSuperclass().getDeclaredFields());
         }
         defaultWriteFields(obj, processingArray);
     }
 
-    private interface StrategyFunc {
-        Field[] getArray(Class c);
+    private interface FieldArraySupplier extends Function<Class, Field[]> {
     }
 
-    private void defaultWriteFields(Object obj, boolean processingArray, StrategyFunc strategyFunc) throws IOException {
+    private void defaultWriteFields(Object obj, boolean processingArray, FieldArraySupplier strategyFunc) throws IOException {
         Class<?> cl = obj.getClass();
 
-        for (Field field : strategyFunc.getArray(cl)) {
+        for (Field field : strategyFunc.apply(cl)) {
             /**
              * revise:
              * 1. 排除内部类的情况
@@ -131,16 +131,6 @@ public class MyOOS extends ObjectOutputStream {
             if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
                 continue;
             }
-//            TypeUtils.Condition<ParameterizedType> condition = TypeUtils.isFieldGenericTypeThenConvert(field);
-//            if (condition.getFlag()) {
-//                handleParameterizedType(obj, field, condition.then());
-//                continue;
-//            }
-//            TypeUtils.Condition<TypeVariable> condition1 = TypeUtils.isFieldTypeVariableThenConvert(field);
-//            if (condition1.getFlag()) {
-//                handleTypeVariable(obj, field, condition1.then());
-//                continue;
-//            }
             field.setAccessible(true);
             try {
                 Class<?> type = field.getType();
@@ -172,59 +162,7 @@ public class MyOOS extends ObjectOutputStream {
     }
 
     private void defaultWriteFields(Object obj, boolean processingArray) throws IOException {
-        Class<?> cl = obj.getClass();
-
-        for (Field field : cl.getDeclaredFields()) {
-            /**
-             * revise:
-             * 1. 排除内部类的情况
-             * 2. 排除时transient
-             * 3. 如果一个属性是泛型，就需要特殊处理
-             */
-            if (field.isSynthetic()) {
-                throw new RuntimeException("暂不支持内部类等");
-            }
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
-                continue;
-            }
-//            TypeUtils.Condition<ParameterizedType> condition = TypeUtils.isFieldGenericTypeThenConvert(field);
-//            if (condition.getFlag()) {
-//                handleParameterizedType(obj, field, condition.then());
-//                continue;
-//            }
-//            TypeUtils.Condition<TypeVariable> condition1 = TypeUtils.isFieldTypeVariableThenConvert(field);
-//            if (condition1.getFlag()) {
-//                handleTypeVariable(obj, field, condition1.then());
-//                continue;
-//            }
-            field.setAccessible(true);
-            try {
-                Class<?> type = field.getType();
-                Object currentField = field.get(obj);
-                if (field.get(obj) == null) {
-                    throw new NullPointerException(type.getName()+" "+field.getName()+": is null");
-                }
-                if (type.isPrimitive()) { //不可能为null，所以不用担心 TODO 是否是多余的
-                    if (type == Integer.TYPE) {
-                        dos.writeInt(field.getInt(obj));
-                    } else if (type == Short.TYPE) {
-                        dos.writeShort(field.getShort(obj));
-                    }
-                }
-                else if (type.isArray()) {
-                    handleArray(type, field.get(obj));
-                }
-                else { //表示是Object类型
-                    TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
-                    if (condition.getFlag() && ! processingArray) { //如果是泛型类型，需要写入实际的类型，否则在read时会认为是Object，从而无法newInstance
-                        dos.writeUTF(currentField.getClass().getName());
-                    }
-                    writeObject0(currentField, processingArray);
-                }
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
+       defaultWriteFields(obj, processingArray, Class::getDeclaredFields);
     }
 
     private void handleArray(Class<?> fieldType, Object obj) throws IOException {
