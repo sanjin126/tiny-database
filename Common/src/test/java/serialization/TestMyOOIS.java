@@ -203,10 +203,11 @@ class Generic<T> implements Serializable {
 @Data
 class Holder<T> implements Serializable  {
 
-    String name = "haha";
-    Dog[] animals = new Dog[]{new Dog(), new Dog("overwrite")};
-    Generic[] g = new Generic[]{new Generic<Cat<String>>(new Cat<>("hello world"))};
-    boolean flag = true;
+//    String name = "haha";
+//    Dog[] animals = new Dog[]{new Dog(), new Dog("overwrite")};
+    Generic[] g = new Generic[]{new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello world"))),
+            new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello Java")))};
+//    boolean flag = true;
 
 
 

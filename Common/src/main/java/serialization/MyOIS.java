@@ -110,6 +110,7 @@ public class MyOIS<T> extends ObjectInputStream {
     private interface StrategyFunc {
         Field[] getArray(Class c);
     }
+    private int depGlobal = -1;
 
     private <Q> Q defaultReadFields(Class<Q> cl, Q ins, StrategyFunc strategyFunc) throws IOException {
         for (Field field : strategyFunc.getArray(cl)) { //进行field的填充
@@ -131,7 +132,9 @@ public class MyOIS<T> extends ObjectInputStream {
                         field.setShort(ins, dis.readShort());
                     }
                 } else if (fieldType.isArray()) {
+                    depGlobal ++; //当处理array时，就开启depth来记录
                     Object[] arr = (Object[]) handleArrayRead(fieldType);
+                    depGlobal = -1;
                     Object[] dest = (Object[]) field.get(ins);
                     System.arraycopy(arr, 0, dest, 0, arr.length); //TODO 应该是复制 而不是 field.set？
                 } else { //表示是Object类型
@@ -140,12 +143,12 @@ public class MyOIS<T> extends ObjectInputStream {
                         TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
                         if (condition.getFlag()) {
                             String className;
-                            if (Objects.isNull(generics2ClassName)) {
+                            if (! isProcessingArray()) {
                                 className = dis.readUTF();
-                            } else {
+                            } else { //表示正在读取array的过程中
                                 String genericName = condition.then().getName();
-                                if (generics2ClassName.containsKey(cl.getName()+genericName)) {
-                                    className = generics2ClassName.get(cl.getName()+genericName);
+                                if (generics2ClassName.containsKey(cl.getName()+genericName+depGlobal)) {
+                                    className = generics2ClassName.get(cl.getName()+genericName+depGlobal);
                                 } else {
                                     throw new RuntimeException(cl.getName()+" "+fieldType.getName()+" 未找到泛型信息");
                                 }
@@ -153,7 +156,13 @@ public class MyOIS<T> extends ObjectInputStream {
                             Class originalFieldType = Class.forName(className);
                             fieldType = originalFieldType;
                         }
+                        if (isProcessingArray()) {
+                            depGlobal ++;
+                        }
                         o = readObject0(fieldType, fieldType.getConstructor().newInstance());
+                        if (isProcessingArray()) {
+                            depGlobal --;
+                        }
                     } catch (InvocationTargetException | InstantiationException e) {
                         throw new RuntimeException(e);
                     } catch (NoSuchMethodException e) {
@@ -180,73 +189,12 @@ public class MyOIS<T> extends ObjectInputStream {
         return ins;
     }
 
+    private boolean isProcessingArray() {
+        return Objects.nonNull(generics2ClassName);
+    }
+
     private <Q> Q defaultReadFields(Class<Q> cl, Q ins) throws IOException {
-        for (Field field : cl.getDeclaredFields()) { //进行field的填充
-            if (field.isSynthetic()) {
-                throw new RuntimeException("暂不支持内部类等");
-            }
-            if (Modifier.isStatic(field.getModifiers())) {
-                continue;
-            }
-            field.setAccessible(true);
-            try {
-//                Class<?> fieldType = field.getType(); //TODO 删除泛型后就不报错
-                Class fieldType = field.getType();
-
-                if (fieldType.isPrimitive()) { //不可能为null，所以不用担心
-                    if (fieldType == Integer.TYPE) {
-                        field.setInt(ins, dis.readInt());
-                    } else if (fieldType == Short.TYPE) {
-                        field.setShort(ins, dis.readShort());
-                    }
-                } else if (fieldType.isArray()) {
-                    Object[] arr = (Object[]) handleArrayRead(fieldType);
-                    Object[] dest = (Object[]) field.get(ins);
-                    System.arraycopy(arr, 0, dest, 0, arr.length); //TODO 应该是复制 而不是 field.set？
-                } else { //表示是Object类型
-                    Object o;
-                    try {
-                        TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
-                        if (condition.getFlag()) {
-                            String className;
-                            if (Objects.isNull(generics2ClassName)) {
-                                className = dis.readUTF();
-                            } else {
-                                String genericName = condition.then().getName();
-                                if (generics2ClassName.containsKey(cl.getName()+genericName)) {
-                                    className = generics2ClassName.get(cl.getName()+genericName);
-                                } else {
-                                    throw new RuntimeException(cl.getName()+" "+fieldType.getName()+" 未找到泛型信息");
-                                }
-                            }
-                            Class originalFieldType = Class.forName(className);
-                            fieldType = originalFieldType;
-                        }
-                        o = readObject0(fieldType, fieldType.getConstructor().newInstance());
-                    } catch (InvocationTargetException | InstantiationException e) {
-                        throw new RuntimeException(e);
-                    } catch (NoSuchMethodException e) {
-                        /**
-                         * 使用null进行一个尝试，如果不行再失败，因为例如Integer这样的内置类型不能访问无参的构造函数，
-                         * 但是在此方法前可以成功创建且不依赖instance的存在与否
-                         */
-                        if (fieldType.isPrimitive() || Number.class.isAssignableFrom(fieldType) || Boolean.class.isAssignableFrom(fieldType) || Character.class.isAssignableFrom(fieldType)) {
-                            o = readObject0(fieldType, null);
-                        } else {
-                            logger.severe(fieldType.getName() + ": 缺少无参构造函数或者不是public的");
-                            throw new RuntimeException(e);
-                        }
-
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                    field.set(ins, o);
-                }
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return ins;
+        return defaultReadFields(cl, ins, c -> c.getDeclaredFields());
     }
 
     private <Q> Q handleArrayRead(Class<Q> type) throws IOException { //TODO 处理数组的长度
@@ -307,7 +255,8 @@ public class MyOIS<T> extends ObjectInputStream {
 
                 Map<String, String> fieldGeneric = new HashMap();
 
-                readAllGenericField(ccl, fieldGeneric);
+                int depth = 0;
+                readAllGenericField(ccl, fieldGeneric, depth);
 
                 generics2ClassName = fieldGeneric; //仅在Array中的Object read时 提供，其余时size为0
 
@@ -336,20 +285,20 @@ public class MyOIS<T> extends ObjectInputStream {
     }
 
     /**
-     *
-     * @param ccl 应该为field的实际类型Class，所以使用Class.forName获取；如果使用field.getType得到的就是
+     * @param ccl          应该为field的实际类型Class，所以使用Class.forName获取；如果使用field.getType得到的就是
      * @param fieldGeneric
+     * @param depth
      * @throws IOException
      */
-    private void readAllGenericField(Class ccl, Map<String, String> fieldGeneric) throws IOException {
+    private void readAllGenericField(Class ccl, Map<String, String> fieldGeneric, int depth) throws IOException {
         if (TypeUtils.isClassIsGeneric(ccl)) {
             for (Field field : ccl.getDeclaredFields()) {
                 TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
                 if (condition.getFlag()) {
                     String className = dis.readUTF();
-                    fieldGeneric.put(ccl.getName()+condition.then().getName(), className);
+                    fieldGeneric.put(ccl.getName()+condition.then().getName()+depth, className);
                     try {
-                        readAllGenericField(Class.forName(className), fieldGeneric);
+                        readAllGenericField(Class.forName(className), fieldGeneric,depth+1);
                     } catch (ClassNotFoundException e) {
                         throw new RuntimeException(e);
                     }

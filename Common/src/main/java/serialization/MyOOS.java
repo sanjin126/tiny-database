@@ -58,13 +58,14 @@ public class MyOOS extends ObjectOutputStream {
     }
 
     private void writeObject0(Object obj, boolean processingArray) throws IOException {
+        if (obj == null) {
+            writeNull();
+        }
         Class<?> cl = obj.getClass();
         /**
          * 先对obj类型进行判断
          */
-        if (obj == null) {
-            writeNull();
-        } else if (obj instanceof String) {
+        if (obj instanceof String) {
             dos.writeUTF((String) obj); //TODO 并不会写入长度，需要自己来处理
         } else if ( cl.isArray() ) {
             handleArray(cl, obj);
@@ -231,6 +232,9 @@ public class MyOOS extends ObjectOutputStream {
                 int len = objs.length;
                 dos.writeInt(len);
                 if (objs.length > 0) {
+                    if (objs[0] == null) {
+                        throw new NullPointerException("数组中第一个元素为空元素");
+                    }
                     writeAllGenericField(ccl, objs[0]);
                 }
 
