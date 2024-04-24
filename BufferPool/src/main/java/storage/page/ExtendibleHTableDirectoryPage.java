@@ -46,11 +46,11 @@ public class ExtendibleHTableDirectoryPage {
      * 	所有指向同一个bucket的entries，都有一个common hash prefix，
      * 	我们用这里的bucket depth来表示 the length of the common hash prefix
      */
-    private byte[] localDepths;
+    private final byte[] localDepths = new byte[HTABLE_DIRECTORY_ARRAY_SIZE];
     /**
      * An array of bucket page ids
      */
-    private int[] bucketPageIds;
+    private final int[] bucketPageIds = new int[HTABLE_DIRECTORY_ARRAY_SIZE];
 
     private ExtendibleHTableDirectoryPage() {} /**delete*/
 
@@ -70,14 +70,13 @@ public class ExtendibleHTableDirectoryPage {
     void init(@UnsignedInt int max_depth) {
         this.maxDepth = max_depth;
         this.globalDepth = 0; //根据扩展哈希，最初为0，即只有一个表项，同时仅仅指向一个buket
-        final int arraySize = 1 << max_depth;
-        assert 4 + 4 + HTABLE_DIRECTORY_ARRAY_SIZE * (1 + 4) <= DBConfig.BUSTUB_PAGE_SIZE;
-        localDepths = new byte[arraySize];
-        bucketPageIds = new int[arraySize];
+        final int arraySize = MaxSize();
+//        localDepths = new byte[arraySize];
+//        bucketPageIds = new int[arraySize];
         // 对数组中的内容进行初始化
         byte initLocalDepth = 0; //初始化时，common hash prefix就是0
-        Arrays.fill(localDepths, initLocalDepth);
-        Arrays.fill(bucketPageIds, Page.INVALID_PAGE_ID); //初始化为invalid id
+        Arrays.fill(localDepths, 0, arraySize, initLocalDepth);
+        Arrays.fill(bucketPageIds, 0, arraySize, Page.INVALID_PAGE_ID); //初始化为invalid id
     }
 
     /**

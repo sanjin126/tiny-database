@@ -2,8 +2,11 @@ package storage.page;
 
 import annotation.UnsignedInt;
 import impletation.Pair;
+import util.TypeUtils;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Optional;
 
@@ -12,11 +15,11 @@ import static config.DBConfig.BUSTUB_PAGE_SIZE;
 /**
  * Bucket page for extendible hash table.
  */
-public class ExtendibleHTableBucketPage<KeyType, ValueType, KeyComparator> implements Serializable {
+public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializable {
     private static final @UnsignedInt int HTABLE_BUCKET_PAGE_METADATA_SIZE = Integer.BYTES * 2;
     private static @UnsignedInt int HTableBucketArraySize(@UnsignedInt int mapping_type_size) {
         return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE) / mapping_type_size;
-    };
+    }
 
     /**
      * The number of key-value pairs the bucket is holding
@@ -33,9 +36,21 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType, KeyComparator> imple
      */
     private transient int sizeOfPair; //TODO 不应该有该变量，其会占据空间，从而导致ArraySize的大小计算错误
 
-    private Pair<KeyType, ValueType>[] array /* = new Pair[sizeOfPair]*/; //TODO 注意类的加载顺序
+    private final Pair<KeyType, ValueType>[] array /* = new Pair[sizeOfPair]*/; //TODO 注意类的加载顺序
 
-    private ExtendibleHTableBucketPage(){
+    public static void main(String[] args) {
+        Field[] fields = ExtendibleHTableBucketPage.class.getDeclaredFields();
+        for (Field field : fields) {
+            Class<?> type = field.getType();
+            if (type.isArray()) {
+                System.out.println(Arrays.toString(type.getComponentType().getTypeParameters()));
+            }
+        }
+    }
+
+    private ExtendibleHTableBucketPage(int sizeOfKeyType, int sizeOfValueType){
+        this.sizeOfPair = sizeOfKeyType + sizeOfValueType;
+        array = new Pair[HTableBucketArraySize( sizeOfPair )];
     } // = delete();
 
     /**
@@ -43,14 +58,11 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType, KeyComparator> imple
      * method to set default values
      * @param max_size Max size of the bucket array
      */
-    public void init(/*int max_size = HTableBucketArraySize(sizeof(MappingType))*/int sizeOfKeyType, int sizeOfValueType) {
-        this.sizeOfPair = sizeOfKeyType + sizeOfValueType;
-        this.init(HTableBucketArraySize( this.sizeOfPair ), sizeOfKeyType, sizeOfValueType);
+    public void init(/*int max_size = HTableBucketArraySize(sizeof(MappingType))*/) {
+        this.init(HTableBucketArraySize( this.sizeOfPair ));
     }
-    public void init(@UnsignedInt int max_size , int sizeOfKeyType, int sizeOfValueType) {
+    public void init(@UnsignedInt int max_size) {
         this.maxSize = max_size;
-        this.sizeOfPair = sizeOfKeyType + sizeOfValueType;
-        array = new Pair[maxSize]; //TODO 检验是否被正确的计算
         this.size = 0;
         assert maxSize <= HTableBucketArraySize( this.sizeOfPair ); // 保证其大小在一个page内
     }
@@ -64,7 +76,8 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType, KeyComparator> imple
      * @return null 表示没有找到 <del>true if the key and value are present, false if not found.</del> 
      */
     public Optional<ValueType> lookup(/*const*/ KeyType key, /*ValueType value,*/ /*const KeyComparator*/ Comparator<KeyType> cmp) /*const*/ {
-        for (Pair<KeyType, ValueType> pair : array) {
+        for (int i = 0; i < size; i++) {
+            Pair<KeyType, ValueType> pair = array[i];
             KeyType currentKey = pair.first;
             int result = cmp.compare(currentKey, key);
             if (result == 0) {

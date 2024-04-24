@@ -25,7 +25,7 @@ public class ExtendibleHTableHeaderPage {
     private static final int HTABLE_HEADER_ARRAY_SIZE = 1 << HTABLE_HEADER_MAX_DEPTH;
 
     /**存储pageId，An array of directory page ids*/
-    private int[] directoryPageIds; //初始化放在构造函数中
+    private final int[] directoryPageIds = new int[HTABLE_HEADER_ARRAY_SIZE]; //初始化放在构造函数中
     /**
      * The maximum depth the header page could handle
      * <p>
@@ -60,10 +60,10 @@ public class ExtendibleHTableHeaderPage {
     }
     void init(int maxDepth) {
         this.maxDepth = maxDepth;
-        final int arraySize = 1 << maxDepth;
-        directoryPageIds = new int[arraySize];
+        final int arraySize = maxSize();
+//        directoryPageIds = new int[arraySize]; TODO:删除
         assert (/*int array*/4*arraySize+/*int*/4) <= DBConfig.BUSTUB_PAGE_SIZE; //arraySize改变，需重新进行检查
-        for (int i = 0; i < directoryPageIds.length; i++) { //设置为无效的PageID
+        for (int i = 0; i < arraySize; i++) { //设置为无效的PageID
             directoryPageIds[i] = Page.INVALID_PAGE_ID;
         }
     }
@@ -104,8 +104,7 @@ public class ExtendibleHTableHeaderPage {
      * @brief Get the maximum number of directory page ids the header page could handle
      */
     @UnsignedInt int maxSize() /*const*/ {
-        assert directoryPageIds.length == 1 << maxDepth; //后续可删除
-        return directoryPageIds.length;
+        return 1 << maxDepth;
     }
 
     /**
