@@ -3,6 +3,8 @@ package storage.page;
 import annotation.UnsignedInt;
 import config.DBConfig;
 
+import java.io.Serializable;
+
 
 /**
  * static first-level directory page. 不涉及扩展哈希
@@ -13,7 +15,7 @@ import config.DBConfig;
  *  *  ---------------------------------------------------
  *  TODO 为什么这里size只是2048？？还有2044的空间不适用，但是下面的assert又与BustubPageSize进行了比较呢？
  */
-public class ExtendibleHTableHeaderPage {
+public class ExtendibleHTableHeaderPage implements Serializable {
 //    { //static assert
 //        assert sizeof(ExtendibleHTableHeaderPage) <= BUSTUB_PAGE_SIZE;
 //    }
@@ -55,10 +57,10 @@ public class ExtendibleHTableHeaderPage {
      * method to set default values
      * @param max_depth Max depth in the header page
      */
-    void init(/*int max_depth = HTABLE_HEADER_MAX_DEPTH*/) { //默认参数的变相实现
+    public void init(/*int max_depth = HTABLE_HEADER_MAX_DEPTH*/) { //默认参数的变相实现
         init(HTABLE_HEADER_MAX_DEPTH);
     }
-    void init(int maxDepth) {
+    public void init(int maxDepth) {
         this.maxDepth = maxDepth;
         final int arraySize = maxSize();
 //        directoryPageIds = new int[arraySize]; TODO:删除
@@ -74,7 +76,7 @@ public class ExtendibleHTableHeaderPage {
      * @param hash the hash of the key
      * @return directory index the key is hashed to
      */
-    @UnsignedInt int hashToDirectoryIndex(@UnsignedInt int hash) /*const*/ {
+    public @UnsignedInt int hashToDirectoryIndex(@UnsignedInt int hash) /*const*/ {
         // 这里的策略是取hash的高 n bit 作为索引，其相当于扩展哈希中的hash策略
         return hash >>> (Integer.SIZE - maxDepth);
         // 例如 00000000000000001000000000000000 >>> (32 - 2) = ...00 = 0
@@ -86,7 +88,7 @@ public class ExtendibleHTableHeaderPage {
      * @param directory_idx index in the directory page id array
      * @return directory page_id at index
      */
-    @UnsignedInt int getDirectoryPageId(@UnsignedInt int directory_idx) /*const*/ {
+    public @UnsignedInt int getDirectoryPageId(@UnsignedInt int directory_idx) /*const*/ {
         return directoryPageIds[directory_idx];
     }
 
@@ -96,21 +98,21 @@ public class ExtendibleHTableHeaderPage {
      * @param directory_idx index in the directory page id array
      * @param directory_page_id page id of the directory
      */
-    void setDirectoryPageId(@UnsignedInt int directory_idx, int directory_page_id) {
+    public void setDirectoryPageId(@UnsignedInt int directory_idx, int directory_page_id) {
         directoryPageIds[directory_idx] = directory_page_id;
     }
 
     /**
      * @brief Get the maximum number of directory page ids the header page could handle
      */
-    @UnsignedInt int maxSize() /*const*/ {
+    public @UnsignedInt int maxSize() /*const*/ {
         return 1 << maxDepth;
     }
 
     /**
      * Prints the header's occupancy information
      */
-    void PrintHeader() /*const*/ {
+    public void PrintHeader() /*const*/ {
 
     }
 
