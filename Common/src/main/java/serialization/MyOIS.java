@@ -48,7 +48,8 @@ public class MyOIS<T> extends ObjectInputStream {
         if (cl == String.class) {
             return (Q) handleStringRead();
         } else if (cl.isArray()) {
-            return handleArrayRead(cl);
+            int arrLength = dis.readInt();
+            return handleArrayRead(cl, arrLength);
         } else if (cl.isEnum()) {
             throw new RuntimeException("暂时不能处理Enum");
         } else if (cl.isPrimitive()) {
@@ -138,10 +139,11 @@ public class MyOIS<T> extends ObjectInputStream {
                     }
                 } else if (fieldType.isArray()) {
                     depGlobal = 0; //当处理array时，就开启depth来记录
-                    Object[] arr = (Object[]) handleArrayRead(fieldType);
+                    int arrLength = dis.readInt();
+                    Object arr =  handleArrayRead(fieldType, arrLength);
                     depGlobal = -1;
-                    Object[] dest = (Object[]) field.get(ins);
-                    System.arraycopy(arr, 0, dest, 0, arr.length); //TODO 应该是复制 而不是 field.set？
+                    Object dest =  field.get(ins);
+                    System.arraycopy(arr, 0, dest, 0, arrLength); //TODO 应该是复制 而不是 field.set？
                 } else { //表示是Object类型
                     Object o;
                     try {
@@ -210,8 +212,8 @@ public class MyOIS<T> extends ObjectInputStream {
         return defaultReadFields(cl, ins, c -> c.getDeclaredFields());
     }
 
-    private <Q> Q handleArrayRead(Class<Q> type) throws IOException { //TODO 处理数组的长度
-        int arrLength = dis.readInt();
+    private <Q> Q handleArrayRead(Class<Q> type, int arrLength) throws IOException { //TODO 处理数组的长度
+
         Class<?> componentType = type.getComponentType();
         if (arrLength <= 0) {
             return (Q) Array.newInstance(componentType, 0);
