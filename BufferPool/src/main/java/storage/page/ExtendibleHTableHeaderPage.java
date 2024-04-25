@@ -15,7 +15,7 @@ import java.io.Serializable;
  *  *  ---------------------------------------------------
  *  TODO 为什么这里size只是2048？？还有2044的空间不适用，但是下面的assert又与BustubPageSize进行了比较呢？
  */
-public class ExtendibleHTableHeaderPage implements Serializable {
+public class ExtendibleHTableHeaderPage implements SerializablePageData {
 //    { //static assert
 //        assert sizeof(ExtendibleHTableHeaderPage) <= BUSTUB_PAGE_SIZE;
 //    }

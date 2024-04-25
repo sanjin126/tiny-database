@@ -17,7 +17,7 @@ import static config.DBConfig.BUSTUB_PAGE_SIZE;
 /**
  * Bucket page for extendible hash table.
  */
-public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializable , ArrayNullElement {
+public class ExtendibleHTableBucketPage<KeyType, ValueType> implements SerializablePageData , ArrayNullElement {
     private static final @UnsignedInt int HTABLE_BUCKET_PAGE_METADATA_SIZE = Integer.BYTES * 2;
     private static @UnsignedInt int HTableBucketArraySize(@UnsignedInt int mapping_type_size) {
         return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE - extraSerializeSpace() - 50/*余量*/) / mapping_type_size;
@@ -55,7 +55,7 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
         }
     }
 
-    private ExtendibleHTableBucketPage(int sizeOfKeyType, int sizeOfValueType){
+    public ExtendibleHTableBucketPage(int sizeOfKeyType, int sizeOfValueType){
         this.sizeOfPair = sizeOfKeyType + sizeOfValueType;
         array = new Pair[HTableBucketArraySize( sizeOfPair )];
     } // = delete();

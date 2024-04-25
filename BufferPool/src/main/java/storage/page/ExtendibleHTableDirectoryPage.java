@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  *  --------------------------------------------------------------------------------------
  *  Directory Page for extendible hash table.
  */
-public class ExtendibleHTableDirectoryPage implements Serializable {
+public class ExtendibleHTableDirectoryPage implements SerializablePageData {
     private transient final Logger logger = Logger.getLogger(this.getClass().getName());
     private static final int HTABLE_DIRECTORY_PAGE_METADATA_SIZE = Integer.BYTES * 2;
 

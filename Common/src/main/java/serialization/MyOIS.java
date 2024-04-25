@@ -27,8 +27,11 @@ public class MyOIS<T> extends ObjectInputStream {
      * @param clazz 需要read出的类型
      * @throws IOException
      * @throws SecurityException
+     * Throws:
+     * SecurityException – if a security manager exists and its checkPermission method denies enabling subclassing.
+     * IOException – if an I/O error occurs while creating this stream
      */
-    protected MyOIS(ByteArrayInputStream in, Class<T> clazz, T instance) throws IOException, SecurityException {
+    public MyOIS(ByteArrayInputStream in, Class<T> clazz, T instance) throws IOException {
         super();
         this.in = in;
         this.clazz = clazz;
@@ -37,7 +40,7 @@ public class MyOIS<T> extends ObjectInputStream {
     }
 
     @Override
-    protected T readObjectOverride() throws IOException {
+    public T readObjectOverride() throws IOException {
         return readObject0(this.clazz, this.instance);
     }
 

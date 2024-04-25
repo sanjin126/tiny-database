@@ -123,7 +123,7 @@ public class BufferPoolManager {
      * @param[out] page_id, the id of the new page
      * @return BasicPageGuard holding a new page
      */
-    BasicPageGuard NewPageGuarded() throws ExecutionException, InterruptedException {
+    public BasicPageGuard NewPageGuarded() throws ExecutionException, InterruptedException {
         Page page = newPage();
         if (Objects.isNull(page))
             return null;

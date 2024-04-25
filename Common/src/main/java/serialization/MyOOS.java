@@ -33,7 +33,7 @@ public class MyOOS extends ObjectOutputStream {
     }
 
     @Override
-    protected void writeObjectOverride(Object obj) throws IOException {
+    public void writeObjectOverride(Object obj) throws IOException {
         super.writeObjectOverride(obj);
         instance = obj;
         writeObject0(obj);

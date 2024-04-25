@@ -6,9 +6,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -38,13 +36,10 @@ public class DiskManager { //TODO 待实现
         this.logName = "test.log";
         filePath = Paths.get(fileName);
         logPath = Paths.get(logName);
-        try {
-            logChannel = Files.newByteChannel(logPath);
-            fileChannel = Files.newByteChannel(filePath);
-        } catch (IOException e) {
-            logger.severe(e.getMessage()+">>>>>>>>构造函数未成功创建");
-            throw new RuntimeException(e);
-        }
+
+            logChannel = null;
+            fileChannel = null;
+
     }
 
     /**

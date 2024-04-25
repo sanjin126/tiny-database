@@ -1,22 +1,31 @@
 package storage.page;
 
 import buffer.BufferPoolManager;
+import serialization.MyOIS;
+import util.SerializeUtils;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.logging.Logger;
 
+/**
+ * 是否需要在此类的方法中 pin一个Page，不需要，因为在fetch和new一个新的page的时候就已经pin了
+ */
 public class BasicPageGuard{
     private BufferPoolManager bufferPoolManager;
     private Page page;
     private boolean isDirty = false;
-    private final Logger logger = Logger.getLogger(BasicPageGuard.class.getName());
+    private static final Logger logger = Logger.getLogger(BasicPageGuard.class.getName());
 
     public BasicPageGuard(BufferPoolManager poolManager, Page page) {
         this.bufferPoolManager = poolManager;
         this.page = page;
     }
 
-    //对c++中移动构造函数的模拟
+    //TODO 对c++中移动构造函数的模拟 是否有用？
     public BasicPageGuard(BasicPageGuard pageGuard) {
         this(pageGuard.bufferPoolManager, pageGuard.page);
         pageGuard.page = null;
@@ -30,9 +39,28 @@ public class BasicPageGuard{
      * (so that the page guard is no longer useful), and
      * it should tell the BPM that we are done using this page,
      * per the specification in the writeup.
+     * drop之后就不能再使用此类了
      */
-    public void drop() {
+    private void drop() {
         checkIfBasicPageGuardValid();
+        bufferPoolManager.unpinPage(page.getPageId(), isDirty);
+        this.page = null;
+        this.bufferPoolManager = null;
+    }
+
+    private <T> void drop(T outerPage) {
+        checkIfBasicPageGuardValid();
+
+        if (isDirty) { //TODO 是否需要这样做
+            try {
+                byte[] updatedData = SerializeUtils.deserialize(outerPage);
+                // invariants: mayUpdatedData.length <= basicPageGuard.page.length(which equal DBConfig.PAGE_SIZE)
+                System.arraycopy(updatedData, 0, this.page.getData(), 0, updatedData.length);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         bufferPoolManager.unpinPage(page.getPageId(), isDirty);
         this.page = null;
         this.bufferPoolManager = null;
@@ -82,22 +110,31 @@ public class BasicPageGuard{
      * 返回一个不可更改的数组，目前通过clone实现
      * @return
      */
-    public byte[] getData() { return page.getData().clone(); }
+    public byte[] getData() { return page.getData().clone(); } //TODO 对于Clone方法的讨论
 
 
-//    public <T> T[] As(T e) {
-//        return reinterpret_cast<const T *>(GetData());
-//    }
+    public <T> T As(T mock, Class<T> cl) {
+        byte[] data = getData();
+        try { //TODO exception 应该传播出去 还是本层处理？
+            return SerializeUtils.serialize(mock, cl, data);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
 
     public byte[] GetDataMut() {
         isDirty = true;
         return page.getData();
     }
-//
-//    template <class T>
-//    auto AsMut() -> T * {
-//        return reinterpret_cast<T *>(GetDataMut());
-//    }
+
+    public <T> T AsMut(T mock, Class<T> cl) {
+        byte[] data = GetDataMut();
+        try {
+            return SerializeUtils.serialize(mock, cl, data);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
     public static class ReadPageGuard {
         private BasicPageGuard basicPageGuard;
 
@@ -121,7 +158,7 @@ public class BasicPageGuard{
         public void drop() {
             checkIfBasicPageGuardValid(basicPageGuard);
             //首先 释放读锁
-            basicPageGuard.page.rUnLatch();
+            basicPageGuard.page.rUnLatch(); //TODO 内部类可以直接访问外部类的private属性
             // 接着清理basicPageGuard
             basicPageGuard.drop();
         }
@@ -130,10 +167,9 @@ public class BasicPageGuard{
 
         byte[] GetData() { return basicPageGuard.getData(); }
 
-//        template <class T>
-//        auto As() -> const T * {
-//            return guard_.As<T>();
-//        }
+        public <T> T As(T mock, Class<T> cl) {
+            return basicPageGuard.As(mock, cl);
+        }
     }
 
     public static class WritePageGuard {
@@ -156,8 +192,17 @@ public class BasicPageGuard{
          * However, you should think VERY carefully about in which order you
          * want to release these resources.
          */
-        public void drop() {
+        public <T extends SerializablePageData> void drop(T outerPage) {
             checkIfBasicPageGuardValid(basicPageGuard);
+            if (basicPageGuard.isDirty) {
+                try {
+                    byte[] updatedData = SerializeUtils.deserialize(outerPage);
+                    // invariants: mayUpdatedData.length <= basicPageGuard.page.length(which equal DBConfig.PAGE_SIZE)
+                    System.arraycopy(updatedData, 0, basicPageGuard.page.getData(), 0, updatedData.length);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             // 必须先释放写锁，再drop，因为basicPageGuard drop之后，会删除page的引用
             basicPageGuard.page.wUnLatch();
             basicPageGuard.drop();
@@ -167,14 +212,13 @@ public class BasicPageGuard{
 
         byte[] GetDataMut() { return basicPageGuard.GetDataMut(); }
 
-//        template <class T>
-//        auto As() -> const T * {
-//            return guard_.As<T>();
-//        }
-//        template <class T>
-//        auto AsMut() -> T * {
-//            return guard_.AsMut<T>();
-//        }
+        public <T> T As(T mock, Class<T> cl) {
+            return basicPageGuard.As(mock, cl);
+        }
+
+        public <T> T AsMut(T mock, Class<T> cl) {
+            return basicPageGuard.AsMut(mock, cl);
+        }
 
 
     }
