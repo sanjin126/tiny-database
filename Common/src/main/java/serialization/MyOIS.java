@@ -213,6 +213,9 @@ public class MyOIS<T> extends ObjectInputStream {
     private <Q> Q handleArrayRead(Class<Q> type) throws IOException { //TODO 处理数组的长度
         int arrLength = dis.readInt();
         Class<?> componentType = type.getComponentType();
+        if (arrLength <= 0) {
+            return (Q) Array.newInstance(componentType, 0);
+        }
         Object array = Array.newInstance(componentType, arrLength);
 
         if (type.isArray()) {

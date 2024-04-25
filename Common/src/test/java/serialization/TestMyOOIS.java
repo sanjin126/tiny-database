@@ -77,10 +77,11 @@ public class TestMyOOIS {
     @Test
     public void testObjectArray() throws IOException {
         Integer[] arr = new Integer[3];
-        testOneType((Class)Integer.class, arr, arr, new CheckFunc() {
+        Class aClass = arr.getClass();
+        testOneType(aClass, arr, arr, new CheckFunc() {
             @Override
             public <T> void test(T expectValue, T res) {
-                Arrays.equals((int[]) expectValue, (int[]) res);
+                Arrays.equals((Integer[]) expectValue, (Integer []) res);
             }
         });
 
@@ -95,6 +96,18 @@ public class TestMyOOIS {
     public void testCustomObject() throws IOException {
         Holder<Integer> holder = new Holder<Integer>();
         testOneType(Holder.class, holder, new Holder(), Assertions::assertEquals);
+    }
+
+    @Test
+    public void testArrLengthEQ0() throws IOException {
+        Integer[] arr = new Integer[0];
+        Class aClass = arr.getClass();
+        testOneType(aClass, arr, arr, new CheckFunc() {
+            @Override
+            public <T> void test(T expectValue, T res) {
+                Arrays.equals((Integer[]) expectValue, (Integer[]) res);
+            }
+        });
     }
 
     @Test
@@ -225,7 +238,7 @@ class Holder<T> implements Serializable  {
 //            new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello Java")))};
 //    boolean flag = true;
     Generic[] g = new Generic[]{new Generic<Cat<Integer>>(new Cat<>(1))};
-
+    Generic[] gg = new Generic[0];
 
 
 

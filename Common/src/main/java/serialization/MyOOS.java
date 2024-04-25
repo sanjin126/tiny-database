@@ -247,17 +247,17 @@ public class MyOOS extends ObjectOutputStream {
                  */
                 Object[] objs = (Object[]) array;
                 // 对于泛型类型的特殊处理
-                int len = objs.length;
+                final int len = objs.length;
                 dos.writeInt(len);
-                if (objs.length > 0) {
+                if (len > 0) {
                     Object element= findNonNullElement(objs);
 
                     writeAllGenericField(ccl, element);
 
-                }
+                    for (int i = 0; i < len; i++) {
+                        writeObject0(objs[i], true);
+                    }
 
-                for (int i = 0; i < len; i++) {
-                    writeObject0(objs[i], true);
                 }
 
             }
