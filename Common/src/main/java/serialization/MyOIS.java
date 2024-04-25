@@ -120,7 +120,7 @@ public class MyOIS<T> extends ObjectInputStream {
 //                throw new RuntimeException("暂不支持内部类等");
                 continue;
             }
-            if (Modifier.isStatic(field.getModifiers())) {
+            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
                 continue;
             }
             field.setAccessible(true);
