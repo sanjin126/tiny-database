@@ -6,13 +6,14 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.TypeVariable;
-import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
  * 生成的byte数组的大小 = 非static非transient的field类型size总和
  * 数组会存储一个int作为length
  * String会存储一个short作为length
+ * 泛型会存储一个实际的类型
  *
  * 使用的类必须继承自serializable接口，且要求有public的无参构造方法
  * 暂不支持：Enum
@@ -23,6 +24,7 @@ public class MyOOS extends ObjectOutputStream {
 
     private ByteArrayOutputStream out;
     private DataOutputStream dos;
+    private Object instance;
 
     public MyOOS(ByteArrayOutputStream out) throws IOException {
         super();
@@ -33,11 +35,25 @@ public class MyOOS extends ObjectOutputStream {
     @Override
     protected void writeObjectOverride(Object obj) throws IOException {
         super.writeObjectOverride(obj);
+        instance = obj;
         writeObject0(obj);
     }
 
-    private void writeNull() {
-        throw new NullPointerException();
+    private void writeNull(boolean processingArray) {
+        if (processingArray) { //如果正在处理Array，那么就将处理Array空数组的行为转交给类来处理
+            try {
+                ArrayNullElement cast = (ArrayNullElement) instance;
+                int elementSize = cast.getElementSize();
+                byte[] bytes = new byte[elementSize];
+                dos.write(bytes);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (ClassCastException e) {
+                throw new RuntimeException("请为"+instance.getClass().getName()+"实现"+ArrayNullElement.class.getName());
+            }
+        } else {
+            throw new NullPointerException();
+        }
     }
 
     private void writeObject0(Object obj) throws IOException {
@@ -59,7 +75,8 @@ public class MyOOS extends ObjectOutputStream {
 
     private void writeObject0(Object obj, boolean processingArray) throws IOException {
         if (obj == null) {
-            writeNull();
+            writeNull(processingArray);
+            return;
         }
         Class<?> cl = obj.getClass();
         /**
@@ -127,7 +144,8 @@ public class MyOOS extends ObjectOutputStream {
              * 3. 如果一个属性是泛型，就需要特殊处理
              */
             if (field.isSynthetic()) {
-                throw new RuntimeException("暂不支持内部类等");
+//                throw new RuntimeException("暂不支持内部类等");
+                continue;
             }
             if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
                 continue;
@@ -232,10 +250,10 @@ public class MyOOS extends ObjectOutputStream {
                 int len = objs.length;
                 dos.writeInt(len);
                 if (objs.length > 0) {
-                    if (objs[0] == null) {
-                        throw new NullPointerException("数组中第一个元素为空元素");
-                    }
-                    writeAllGenericField(ccl, objs[0]);
+                    Object element= findNonNullElement(objs);
+
+                    writeAllGenericField(ccl, element);
+
                 }
 
                 for (int i = 0; i < len; i++) {
@@ -248,7 +266,16 @@ public class MyOOS extends ObjectOutputStream {
         }
     }
 
+    private Object findNonNullElement(Object[] objs) {
+        for (int i = 0; i < objs.length; i++) {
+            if (Objects.nonNull(objs[i])) return objs[i];
+        }
+        return null;
+    }
+
+
     /**
+     * 对于Component的field进行处理，而不会处理Component本身
      * 包括field的field的field
      * @param ccl field的实际类型
      * @param fieldOwner
@@ -265,9 +292,17 @@ public class MyOOS extends ObjectOutputStream {
                 TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
                 if (condition.getFlag()) {
                     try {
-                        Object actualField = field.get(fieldOwner);
+                        /**
+                         * 如果数组的元素全部为空，则写入java.lang.Object;
+                         */
+                        Object actualField = new Object();
+                        if (fieldOwner != null) {
+                            actualField = field.get(fieldOwner);
+                        }
                         dos.writeUTF(actualField.getClass().getName());
-                        writeAllGenericField(actualField.getClass(), actualField);
+
+                        writeAllGenericField(actualField.getClass(), actualField); //如果是Object，则进入之后也不会做什么
+
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }

@@ -5,6 +5,7 @@ import annotation.UnsignedInt;
 import config.DBConfig;
 import util.BitUtils;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -15,8 +16,8 @@ import java.util.logging.Logger;
  *  --------------------------------------------------------------------------------------
  *  Directory Page for extendible hash table.
  */
-public class ExtendibleHTableDirectoryPage {
-    private final Logger logger = Logger.getLogger(this.getClass().getName());
+public class ExtendibleHTableDirectoryPage implements Serializable {
+    private transient final Logger logger = Logger.getLogger(this.getClass().getName());
     private static final int HTABLE_DIRECTORY_PAGE_METADATA_SIZE = Integer.BYTES * 2;
 
     /**
@@ -64,10 +65,10 @@ public class ExtendibleHTableDirectoryPage {
      * method to set default values
      * @param max_depth Max depth in the directory page
      */
-    void init(/**int max_depth = HTABLE_DIRECTORY_MAX_DEPTH*/) {
+    public void init(/**int max_depth = HTABLE_DIRECTORY_MAX_DEPTH*/) {
         this.init(HTABLE_DIRECTORY_MAX_DEPTH);
     }
-    void init(@UnsignedInt int max_depth) {
+    public void init(@UnsignedInt int max_depth) {
         this.maxDepth = max_depth;
         this.globalDepth = 0; //根据扩展哈希，最初为0，即只有一个表项，同时仅仅指向一个buket
         final int arraySize = MaxSize();
@@ -85,7 +86,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param hash the hash of the key
      * @return bucket index current key is hashed to
      */
-    @UnsignedInt int HashToBucketIndex(@UnsignedInt int hash) /*const*/ {
+    public @UnsignedInt int HashToBucketIndex(@UnsignedInt int hash) /*const*/ {
         return BitUtils.highestNbits(hash, globalDepth); //这里使用globalDepth
     }
 
@@ -96,7 +97,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx the index in the directory to lookup
      * @return bucket page_id corresponding to bucket_idx
      */
-    int GetBucketPageId(@UnsignedInt int bucket_idx) /**const*/ {
+    public int GetBucketPageId(@UnsignedInt int bucket_idx) /**const*/ {
         return bucketPageIds[bucket_idx];
     }
 
@@ -106,7 +107,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx directory index at which to insert page_id
      * @param bucket_page_id page_id to insert
      */
-    void SetBucketPageId(@UnsignedInt int bucket_idx, int bucket_page_id) {
+    public void SetBucketPageId(@UnsignedInt int bucket_idx, int bucket_page_id) {
         bucketPageIds[bucket_idx] = bucket_page_id;
     }
 
@@ -116,7 +117,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx the directory index for which to find the split image
      * @return the directory index of the split image
      **/
-    @UnsignedInt int GetSplitImageIndex(@UnsignedInt int bucket_idx) /*const*/ {
+    public @UnsignedInt int GetSplitImageIndex(@UnsignedInt int bucket_idx) /*const*/ {
         return 0; //TODO
     }
 
@@ -135,7 +136,7 @@ public class ExtendibleHTableDirectoryPage {
      *
      * @return mask of global_depth 1's and the rest 0's (with 1's from LSB upwards)
      */
-    @UnsignedInt int GetGlobalDepthMask() /*const*/ {
+    public @UnsignedInt int GetGlobalDepthMask() /*const*/ {
         return 1 << globalDepth - 1;
     }
 
@@ -146,7 +147,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx the index to use for looking up local depth
      * @return mask of local 1's and the rest 0's (with 1's from LSB upwards)
      */
-    @UnsignedInt int GetLocalDepthMask(@UnsignedInt int bucket_idx) /*const*/ {
+    public @UnsignedInt int GetLocalDepthMask(@UnsignedInt int bucket_idx) /*const*/ {
         return 1 << localDepths[bucket_idx] - 1;
     }
 
@@ -155,18 +156,18 @@ public class ExtendibleHTableDirectoryPage {
      *
      * @return the global depth of the directory
      */
-    @UnsignedInt int GetGlobalDepth() /*const*/  {
+    public @UnsignedInt int GetGlobalDepth() /*const*/  {
         return globalDepth;
     }
 
-    @UnsignedInt int GetMaxDepth() /*const*/ {
+    public @UnsignedInt int GetMaxDepth() /*const*/ {
         return maxDepth;
     }
 
     /**
      * Increment the global depth of the directory
      */
-    void IncrGlobalDepth()  {
+    public void IncrGlobalDepth()  {
         ++ globalDepth;
         assert globalDepth <= maxDepth;
     }
@@ -174,7 +175,7 @@ public class ExtendibleHTableDirectoryPage {
     /**
      * Decrement the global depth of the directory
      */
-    void DecrGlobalDepth() {
+    public void DecrGlobalDepth() {
         -- globalDepth;
         assert globalDepth > 0;
     }
@@ -183,7 +184,7 @@ public class ExtendibleHTableDirectoryPage {
      * Only shrink the directory if the local depth of every bucket is strictly less than the global depth of the directory.
      * @return true if the directory can be shrunk
      */
-    boolean CanShrink() {
+    public boolean CanShrink() {
         // split的条件是 当前插入的bucket的 localDepth == globalDepth（仅有一个entry指向此bucket），并且这个bucket已经满了
         // shrink的条件是 所有的bucket都不能会split===> 对于任一bucket，其localDepth < globalDepth, <del>并且这个bucket还没满</del>
         for (byte localDepth : localDepths) {
@@ -196,14 +197,14 @@ public class ExtendibleHTableDirectoryPage {
     /**
      * @return the current directory size
      */
-    @UnsignedInt int Size() /*const*/ {
+    public @UnsignedInt int Size() /*const*/ {
         return 1 << this.globalDepth;
     }
 
     /**
      * @return the max directory size
      */
-    @UnsignedInt int MaxSize() /*const*/ {
+    public @UnsignedInt int MaxSize() /*const*/ {
         return 1 << this.maxDepth;
     }
 
@@ -213,7 +214,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx the bucket index to lookup
      * @return the local depth of the bucket at bucket_idx
      */
-    @UnsignedInt int GetLocalDepth(@UnsignedInt int bucket_idx) /*const*/  {
+   public @UnsignedInt int GetLocalDepth(@UnsignedInt int bucket_idx) /*const*/  {
         return localDepths[bucket_idx];
     }
 
@@ -223,7 +224,7 @@ public class ExtendibleHTableDirectoryPage {
      * @param bucket_idx bucket index to update
      * @param local_depth new local depth
      */
-    void SetLocalDepth(@UnsignedInt int bucket_idx, @UnsignedByte byte local_depth) {
+    public void SetLocalDepth(@UnsignedInt int bucket_idx, @UnsignedByte byte local_depth) {
         localDepths[bucket_idx] = local_depth;
     }
 
@@ -231,7 +232,7 @@ public class ExtendibleHTableDirectoryPage {
      * Increment the local depth of the bucket at bucket_idx
      * @param bucket_idx bucket index to increment
      */
-    void IncrLocalDepth(@UnsignedInt int bucket_idx) {
+    public void IncrLocalDepth(@UnsignedInt int bucket_idx) {
         ++ localDepths[bucket_idx];
     }
 
@@ -239,7 +240,7 @@ public class ExtendibleHTableDirectoryPage {
      * Decrement the local depth of the bucket at bucket_idx
      * @param bucket_idx bucket index to decrement
      */
-    void DecrLocalDepth(@UnsignedInt int bucket_idx) {
+    public void DecrLocalDepth(@UnsignedInt int bucket_idx) {
         if (localDepths[bucket_idx] <= 0)
             return;
         -- localDepths[bucket_idx];
@@ -257,7 +258,7 @@ public class ExtendibleHTableDirectoryPage {
      *     (3)指向同一个bucket的entry的local depth都应该相同
      * </p>
      */
-    void VerifyIntegrity() /*const*/ {
+    public void VerifyIntegrity() /*const*/ {
         class Pair {
             int localDepth; //指向当前bucket的localDepth
             int numOfPointer;
@@ -300,7 +301,7 @@ public class ExtendibleHTableDirectoryPage {
     /**
      * Prints the current directory
      */
-    void PrintDirectory() /*const*/ {
+    public void PrintDirectory() /*const*/ {
 
     }
 

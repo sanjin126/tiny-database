@@ -2,6 +2,8 @@ package storage.page;
 
 import annotation.UnsignedInt;
 import impletation.Pair;
+import lombok.val;
+import serialization.ArrayNullElement;
 import util.TypeUtils;
 
 import java.io.Serializable;
@@ -15,10 +17,14 @@ import static config.DBConfig.BUSTUB_PAGE_SIZE;
 /**
  * Bucket page for extendible hash table.
  */
-public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializable {
+public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializable , ArrayNullElement {
     private static final @UnsignedInt int HTABLE_BUCKET_PAGE_METADATA_SIZE = Integer.BYTES * 2;
     private static @UnsignedInt int HTableBucketArraySize(@UnsignedInt int mapping_type_size) {
-        return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE) / mapping_type_size;
+        return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE - extraSerializeSpace() - 50/*余量*/) / mapping_type_size;
+    }
+    private static @UnsignedInt int extraSerializeSpace() {
+        return 4/*数组size integer存储*/ +
+                /*泛型*/("java.lang.Integer".length() * 2/*utf-8 2byte存储*/  + 2/*short存储长度*/) * /*个数*/2;
     }
 
     /**
@@ -34,9 +40,10 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
         #define MappingType std::pair<KeyType, ValueType>
         用于计算array的大小
      */
-    private transient int sizeOfPair; //TODO 不应该有该变量，其会占据空间，从而导致ArraySize的大小计算错误
+    private int sizeOfPair=-1; //TODO 不应该有该变量，其会占据空间，从而导致ArraySize的大小计算错误
 
     private final Pair<KeyType, ValueType>[] array /* = new Pair[sizeOfPair]*/; //TODO 注意类的加载顺序
+
 
     public static void main(String[] args) {
         Field[] fields = ExtendibleHTableBucketPage.class.getDeclaredFields();
@@ -194,4 +201,11 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
 
     }
 
+    @Override
+    public int getElementSize() {
+        if (sizeOfPair == -1) {
+            throw new RuntimeException("请通过构造函数正确的设置size大小");
+        }
+        return sizeOfPair;
+    }
 }

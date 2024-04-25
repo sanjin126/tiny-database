@@ -1,11 +1,12 @@
 package impletation;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
 
-public class Pair<firstType, secondType> {
+public class Pair<firstType, secondType> implements Serializable {
 
     public final firstType first;
     public final secondType second;
@@ -21,6 +22,14 @@ public class Pair<firstType, secondType> {
                 System.out.println(((TypeVariable) field.getGenericType()).getGenericDeclaration());
             }
         }
+    }
+
+    /**
+     * 仅仅序列化的时候使用
+     */
+    public Pair(){
+        first = null;
+        second = null;
     }
 
 

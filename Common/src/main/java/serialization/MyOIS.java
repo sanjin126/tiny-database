@@ -4,6 +4,7 @@ import util.TypeUtils;
 
 import java.io.*;
 import java.lang.reflect.*;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -115,7 +116,8 @@ public class MyOIS<T> extends ObjectInputStream {
     private <Q> Q defaultReadFields(Class<Q> cl, Q ins, StrategyFunc strategyFunc) throws IOException {
         for (Field field : strategyFunc.getArray(cl)) { //进行field的填充
             if (field.isSynthetic()) {
-                throw new RuntimeException("暂不支持内部类等");
+//                throw new RuntimeException("暂不支持内部类等");
+                continue;
             }
             if (Modifier.isStatic(field.getModifiers())) {
                 continue;
@@ -132,7 +134,7 @@ public class MyOIS<T> extends ObjectInputStream {
                         field.setShort(ins, dis.readShort());
                     }
                 } else if (fieldType.isArray()) {
-                    depGlobal ++; //当处理array时，就开启depth来记录
+                    depGlobal = 0; //当处理array时，就开启depth来记录
                     Object[] arr = (Object[]) handleArrayRead(fieldType);
                     depGlobal = -1;
                     Object[] dest = (Object[]) field.get(ins);
@@ -159,7 +161,12 @@ public class MyOIS<T> extends ObjectInputStream {
                         if (isProcessingArray()) {
                             depGlobal ++;
                         }
-                        o = readObject0(fieldType, fieldType.getConstructor().newInstance());
+                        if (isProcessingArray() && fieldType == Object.class) {
+                            //说明数组元素全部为空
+                            o = null;
+                        } else {
+                            o = readObject0(fieldType, fieldType.getConstructor().newInstance());
+                        }
                         if (isProcessingArray()) {
                             depGlobal --;
                         }
@@ -175,6 +182,9 @@ public class MyOIS<T> extends ObjectInputStream {
                         } else {
                             logger.severe(fieldType.getName() + ": 缺少无参构造函数或者不是public的");
                             throw new RuntimeException(e);
+                        }
+                        if (isProcessingArray()) {
+                            depGlobal --;
                         }
 
                     } catch (ClassNotFoundException e) {
@@ -203,7 +213,7 @@ public class MyOIS<T> extends ObjectInputStream {
         Object array = Array.newInstance(componentType, arrLength);
 
         if (type.isArray()) {
-            Class ccl = componentType;
+            Class ccl = componentType; //ccl一定不是Object
             if (ccl.isPrimitive()) {
                 if (ccl == Integer.TYPE) {
                     int[] ia = (int[]) array;
@@ -256,7 +266,10 @@ public class MyOIS<T> extends ObjectInputStream {
                 Map<String, String> fieldGeneric = new HashMap();
 
                 int depth = 0;
-                readAllGenericField(ccl, fieldGeneric, depth);
+                if ( ! readAllGenericField(ccl, fieldGeneric, depth) ) { //此时数组中全为空
+                    Arrays.fill(objs, null);
+                    return (Q) objs;
+                }
 
                 generics2ClassName = fieldGeneric; //仅在Array中的Object read时 提供，其余时size为0
 
@@ -285,17 +298,21 @@ public class MyOIS<T> extends ObjectInputStream {
     }
 
     /**
-     * @param ccl          应该为field的实际类型Class，所以使用Class.forName获取；如果使用field.getType得到的就是
+     * @param ccl          应该为field的实际所属类型Class，所以使用Class.forName获取；如果使用field.getType得到的就是
      * @param fieldGeneric
      * @param depth
      * @throws IOException
+     * @return 返回false 表示数组中元素全为空，返回进行处理
      */
-    private void readAllGenericField(Class ccl, Map<String, String> fieldGeneric, int depth) throws IOException {
+    private boolean readAllGenericField(Class ccl, Map<String, String> fieldGeneric, int depth) throws IOException {
         if (TypeUtils.isClassIsGeneric(ccl)) {
             for (Field field : ccl.getDeclaredFields()) {
                 TypeUtils.Condition<TypeVariable> condition = TypeUtils.isFieldTypeVariableThenConvert(field);
                 if (condition.getFlag()) {
                     String className = dis.readUTF();
+                    if (className.equals(Object.class.getName())) {
+                        return false;
+                    }
                     fieldGeneric.put(ccl.getName()+condition.then().getName()+depth, className);
                     try {
                         readAllGenericField(Class.forName(className), fieldGeneric,depth+1);
@@ -305,6 +322,7 @@ public class MyOIS<T> extends ObjectInputStream {
                 }
             }
         }
+        return true;
     }
 
     /**

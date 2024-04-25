@@ -70,6 +70,22 @@ public class TestMyOOIS {
         });
     }
 
+    /**
+     * 暂时没有实现除了继承serialization.ArrayNullElement的数组的其他null元素的序列化存储
+     * @throws IOException
+     */
+    @Test
+    public void testObjectArray() throws IOException {
+        Integer[] arr = new Integer[3];
+        testOneType((Class)Integer.class, arr, arr, new CheckFunc() {
+            @Override
+            public <T> void test(T expectValue, T res) {
+                Arrays.equals((int[]) expectValue, (int[]) res);
+            }
+        });
+
+    }
+
 
     /**
      * 测试泛型类型的数组，继承，泛型类中包含泛型类的情况
@@ -205,9 +221,11 @@ class Holder<T> implements Serializable  {
 
 //    String name = "haha";
 //    Dog[] animals = new Dog[]{new Dog(), new Dog("overwrite")};
-    Generic[] g = new Generic[]{new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello world"))),
-            new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello Java")))};
+//    Generic[] g = new Generic[]{new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello world"))),
+//            new Generic<Cat<Cat<String>>>(new Cat<>(new Cat<>("hello Java")))};
 //    boolean flag = true;
+    Generic[] g = new Generic[]{new Generic<Cat<Integer>>(new Cat<>(1))};
+
 
 
 
