@@ -41,14 +41,14 @@ public class BasicPageGuard{
      * per the specification in the writeup.
      * drop之后就不能再使用此类了
      */
-    private void drop() {
+    void drop() {
         checkIfBasicPageGuardValid();
         bufferPoolManager.unpinPage(page.getPageId(), isDirty);
         this.page = null;
         this.bufferPoolManager = null;
     }
 
-    private <T> void drop(T outerPage) {
+    <T> void drop(T outerPage) {
         checkIfBasicPageGuardValid();
 
         if (isDirty) { //TODO 是否需要这样做

@@ -36,7 +36,7 @@ public class TestObjectSize {
         int sizeOfValType = 1;
         ExtendibleHTableBucketPage<Long, Byte> bucketPage = getBucketPage(sizeOfKeyType, sizeOfValType);
         // 获取一个新的对象后，先进行init
-        bucketPage.init();
+        bucketPage.init(sizeOfKeyType ,sizeOfValType);
         for (int i = 0; i < HTableBucketArraySize(sizeOfKeyType+sizeOfValType); i++) {
             bucketPage.Insert((long) i, (byte) 1,Long::compare);
         }
@@ -96,7 +96,7 @@ public class TestObjectSize {
     @Test
     public void testGenericUseOfBucketPage() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
         ExtendibleHTableBucketPage<Byte, Integer> bucketPage = getBucketPage(1, 1);
-        bucketPage.init();
+        bucketPage.init(1, 1);
         Pair<Byte, Integer> bytePair = bucketPage.EntryAt(0);
         System.out.println(bytePair);
         System.out.println(bucketPage.Insert((byte) 1, 2999, Byte::compare));

@@ -40,7 +40,7 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
         #define MappingType std::pair<KeyType, ValueType>
         用于计算array的大小
      */
-    private int sizeOfPair=-1; //TODO 不应该有该变量，其会占据空间，从而导致ArraySize的大小计算错误
+    private int sizeOfPair; //TODO 不应该有该变量，其会占据空间，从而导致ArraySize的大小计算错误
 
     private final Pair<KeyType, ValueType>[] array /* = new Pair[sizeOfPair]*/; //TODO 注意类的加载顺序
 
@@ -65,10 +65,23 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
      * method to set default values
      * @param max_size Max size of the bucket array
      */
-    public void init(/*int max_size = HTableBucketArraySize(sizeof(MappingType))*/) {
+    public void init() {
         this.init(HTableBucketArraySize( this.sizeOfPair ));
     }
+
     public void init(@UnsignedInt int max_size) {
+        if (sizeOfPair <= 0) {
+            throw new RuntimeException("sizeOfPair未初始化，因为您正在newPage，而非fetchPage。请调用三个参数的init方法");
+        }
+        this.maxSize = max_size;
+        this.size = 0;
+        assert maxSize <= HTableBucketArraySize( this.sizeOfPair ); // 保证其大小在一个page内
+    }
+    public void init(/*int max_size = HTableBucketArraySize(sizeof(MappingType))*/int sizeOfKeyType, int sizeOfValueType) {
+        this.init(HTableBucketArraySize( this.sizeOfPair ), sizeOfKeyType, sizeOfValueType);
+    }
+    public void init(@UnsignedInt int max_size, int sizeOfKeyType, int sizeOfValueType) {
+        this.sizeOfPair = sizeOfKeyType + sizeOfValueType;
         this.maxSize = max_size;
         this.size = 0;
         assert maxSize <= HTableBucketArraySize( this.sizeOfPair ); // 保证其大小在一个page内
@@ -121,7 +134,7 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
      */
     public boolean Remove(/*const*/ KeyType key, /*const*/ Comparator<KeyType> cmp) {
         int bucketIdx = -1;
-        for (int i = 0; i < array.length; i++) {
+        for (int i = 0; i < size; i++) {
             Pair<KeyType, ValueType> pair = array[i];
             KeyType currentKey = pair.first;
             int result = cmp.compare(currentKey, key);
@@ -132,6 +145,7 @@ public class ExtendibleHTableBucketPage<KeyType, ValueType> implements Serializa
         }
         if (bucketIdx != -1) {
             RemoveAt(bucketIdx);
+            return true;
         }
         return false;
     }

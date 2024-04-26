@@ -84,7 +84,7 @@ public class BufferPoolManager {
      * <del>@param[out] page_id id of created page<del/> 由于java无法操作指针类型，所以对于pageId我们通过返回Page 而携带id
      * @return nullptr if no new pages could be created, otherwise pointer to new page
      */
-    public Page newPage() throws ExecutionException, InterruptedException {
+    public Page newPage() {
         Integer availableFrameId;
         // 先检查freeList是否可用
         if (freeList.size() > 0) {
@@ -123,7 +123,7 @@ public class BufferPoolManager {
      * @param[out] page_id, the id of the new page
      * @return BasicPageGuard holding a new page
      */
-    public BasicPageGuard NewPageGuarded() throws ExecutionException, InterruptedException {
+    public BasicPageGuard newPageGuarded() {
         Page page = newPage();
         if (Objects.isNull(page))
             return null;
@@ -147,7 +147,7 @@ public class BufferPoolManager {
      * @param access_type type of access to the page, only needed for leaderboard tests.
      * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
      */
-    public Page fetchPage(int page_id) throws ExecutionException, InterruptedException {
+    public Page fetchPage(int page_id)  {
         if (pageTable.containsKey(page_id)) {
             Integer frameId = pageTable.get(page_id);
             return pages[frameId];
@@ -181,7 +181,15 @@ public class BufferPoolManager {
          * @see DiskScheduler#processRequest(Optional) 
          */
         diskScheduler.schedule(new DiskScheduler.DiskRequest(false, availablePage.getData(), page_id, future));
-        assert future.get() == true;
+        try {
+            future.get() ;
+        } catch (InterruptedException e) { //异常在此层捕获即可，因为该方法的返回值标识了是否成功执行，传播出去也没有什么作用
+            e.printStackTrace();
+            return null;
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+            return null;
+        }
 //        availablePage.setData(data); //在request中直接复制
         pageTable.put(page_id, availableFrameId);
         availablePage.incrPinCount();
@@ -201,20 +209,20 @@ public class BufferPoolManager {
      * @param page_id, the id of the page to fetch
      * @return PageGuard holding the fetched page
      */
-    BasicPageGuard fetchPageBasic(int page_id) throws ExecutionException, InterruptedException {
+    BasicPageGuard fetchPageBasic(int page_id)  {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
         return new BasicPageGuard(this, page);
     }
-    BasicPageGuard.ReadPageGuard FetchPageRead(int page_id) throws ExecutionException, InterruptedException {
+    BasicPageGuard.ReadPageGuard FetchPageRead(int page_id) {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
         page.rLatch(); //获取读锁
         return new BasicPageGuard.ReadPageGuard(this, page);
     }
-    BasicPageGuard.WritePageGuard FetchPageWrite(int page_id) throws ExecutionException, InterruptedException {
+    BasicPageGuard.WritePageGuard FetchPageWrite(int page_id)  {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
@@ -270,7 +278,7 @@ public class BufferPoolManager {
      * @param page_id id of page to be flushed, cannot be INVALID_PAGE_ID
      * @return false if the page could not be found in the page table, true otherwise
      */
-    public boolean flushPage(int pageId) throws ExecutionException, InterruptedException {
+    public boolean flushPage(int pageId) {
         if (checkIfPageNotExist(pageId))
             return false;
         Page page = getPage(pageId);
@@ -279,7 +287,15 @@ public class BufferPoolManager {
         DiskScheduler.DiskRequest request = new DiskScheduler.DiskRequest(true, page.getData(), pageId, future);
         page.rUnLatch();
         diskScheduler.schedule(request);
-        assert future.get() == true;
+        try {
+            future.get();
+        } catch (InterruptedException e) { //本层捕获即可，返回值表示是否成功执行
+            e.printStackTrace();
+            return false;
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+            return false;
+        }
         page.wLatch();
         page.setDirty(false); //Unset the dirty flag
         page.wUnLatch();
@@ -306,7 +322,7 @@ public class BufferPoolManager {
      *
      * @brief Flush all the pages in the buffer pool to disk.
      */
-    public void flushAllPages() throws ExecutionException, InterruptedException {
+    public void flushAllPages() {
         lock.lock(); //TODO 是否可以切换为pageTable的monitor锁
         try {
             //pageTable不是线程安全的

@@ -50,7 +50,7 @@ public class ExtendibleHTableHeaderPage implements SerializablePageData {
         //保证当前类可以存入一个page中，而不会有溢出的情况
     }
     // Delete all constructor
-    private ExtendibleHTableHeaderPage(){}
+    public ExtendibleHTableHeaderPage(){}
 
     /**
      * After creating a new header page from buffer pool, must call initialize
@@ -72,13 +72,19 @@ public class ExtendibleHTableHeaderPage implements SerializablePageData {
 
     /**
      * Get the directory index that the key is hashed to
-     *
+     * 为什么使用long 而不是原来的int 作为参数，因为java没有无符号数，只能使用long作为妥协。
+     * 返回值，可以使用int，只要保证int大于0即可
+     * // TODO 是否可以用long作为返回值？或者有必要吗 ？因为数组的大小可能不会超过int能表示的最大的整数
      * @param hash the hash of the key
      * @return directory index the key is hashed to
+     *
      */
-    public @UnsignedInt int hashToDirectoryIndex(@UnsignedInt int hash) /*const*/ {
+    public @UnsignedInt int hashToDirectoryIndex(@UnsignedInt long hash) /*const*/ {
         // 这里的策略是取hash的高 n bit 作为索引，其相当于扩展哈希中的hash策略
-        return hash >>> (Integer.SIZE - maxDepth);
+        hash = hash & 0x00000000ffffffffL; //去掉高32位
+        int idx = (int) (hash >>> (Integer.SIZE - maxDepth));
+        assert idx >= 0;
+        return idx;
         // 例如 00000000000000001000000000000000 >>> (32 - 2) = ...00 = 0
     }
 

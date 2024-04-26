@@ -53,7 +53,7 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
      */
     private final int[] bucketPageIds = new int[HTABLE_DIRECTORY_ARRAY_SIZE];
 
-    private ExtendibleHTableDirectoryPage() {} /**delete*/
+    public ExtendibleHTableDirectoryPage() {} /**delete*/
 
     /**安全检查*/
     static {
@@ -85,9 +85,12 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
      *
      * @param hash the hash of the key
      * @return bucket index current key is hashed to
+     * 与HeaderPage中进行区分
+     * @see ExtendibleHTableHeaderPage#hashToDirectoryIndex
      */
     public @UnsignedInt int HashToBucketIndex(@UnsignedInt int hash) /*const*/ {
-        return BitUtils.highestNbits(hash, globalDepth); //这里使用globalDepth
+//        return BitUtils.highestNbits(hash, globalDepth); //这里使用globalDepth
+        return hash & GetGlobalDepthMask();
     }
 
 
@@ -137,7 +140,7 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
      * @return mask of global_depth 1's and the rest 0's (with 1's from LSB upwards)
      */
     public @UnsignedInt int GetGlobalDepthMask() /*const*/ {
-        return 1 << globalDepth - 1;
+        return ( 1 << globalDepth )- 1;
     }
 
     /**
@@ -165,10 +168,20 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
     }
 
     /**
+     * 为什么要处理两个数组？
+     * 因为，在增长globalDepth的时候，意味着当前数组大小扩大一倍。
+     * 同时，对于新一半的数组表项，需要有一个值，就是将旧表项进行copy。这时，每一个bucket被entry所指的个数扩大为原来的2倍。
+     * 但是 如 1.rehash的操作 2.localDepth的更新操作 3.分配一个新的bucket 都不需要在本数据结构中进行
      * Increment the global depth of the directory
      */
     public void IncrGlobalDepth()  {
+        final int oldGD = globalDepth;
+        final int oldSize = Size();
         ++ globalDepth;
+        for (int i = oldSize; i < Size(); i++) {
+            bucketPageIds[i] = bucketPageIds[i - oldSize];
+            localDepths[i] = localDepths[i - oldSize];
+        }
         assert globalDepth <= maxDepth;
     }
 
@@ -196,6 +209,7 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
 
     /**
      * @return the current directory size
+     * 既是bucketPageIds的 size， 也是localDepths的 size
      */
     public @UnsignedInt int Size() /*const*/ {
         return 1 << this.globalDepth;
@@ -224,8 +238,8 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
      * @param bucket_idx bucket index to update
      * @param local_depth new local depth
      */
-    public void SetLocalDepth(@UnsignedInt int bucket_idx, @UnsignedByte byte local_depth) {
-        localDepths[bucket_idx] = local_depth;
+    public void SetLocalDepth(@UnsignedInt int bucket_idx, @UnsignedInt int local_depth) {
+        localDepths[bucket_idx] = (byte) local_depth;
     }
 
     /**
@@ -274,26 +288,30 @@ public class ExtendibleHTableDirectoryPage implements SerializablePageData {
             }
         }
         final HashMap<Integer, Pair> pageId2numOfPointer = new HashMap<>();// 每一个bucket有多少指针指向它
-        for (int idx = 0; idx < bucketPageIds.length; idx++) {
+        for (int idx = 0; idx < Size(); idx++) {
             int bucketPageId = bucketPageIds[idx];
             byte localDepth = localDepths[idx];
             if (localDepth > globalDepth) {
-                logger.info("VerifyIntegrity fail, because localDepths["+idx+"] > globalDepth");
-                return;
+                logger.info("VerifyIntegrity fail, because localDepths["+idx+"] > globalDepth"); //条件1
+                throw new RuntimeException();
             }
             Pair flag = pageId2numOfPointer.putIfAbsent(bucketPageId, new Pair(localDepth));//如果absent的话，就会返回null
             if (Objects.nonNull(flag)) { //证明之前已经插入了
-                if (!flag.checkIf_OtherLD_eq_ThisLd(localDepth)) {
-                    logger.info("VerifyIntegrity fail, because OtherLD:"+flag.localDepth+"_not_eq_ThisLd:"+localDepth);
+                // 判断相同bucketPageId的entry是否有相同的localDepth
+                if ( ! flag.checkIf_OtherLD_eq_ThisLd(localDepth) ) {
+                    logger.info("VerifyIntegrity fail, because OtherLD="+flag.localDepth+", _not_eq_ThisLd="+localDepth); //条件3
+                    throw new RuntimeException();
                 }
                 flag.incrNumOfPointer();
             }
         }
         // test (2) Each bucket has precisely 2^(GD - LD) pointers pointing to it.
-        for (Pair pair : pageId2numOfPointer.values()) {
+        for (var set : pageId2numOfPointer.entrySet()) {
+            Integer key = set.getKey();
+            Pair pair = set.getValue();
             if ( pair.numOfPointer != Math.pow(2, globalDepth - pair.localDepth) ) {
-                logger.info("VerifyIntegrity fail, because pair.numOfPointer != Math.pow(2, globalDepth - pair.localDepth)");
-                return;
+                logger.info("VerifyIntegrity fail, because bucketPageId = "+key+",(pair.numOfPointer="+ pair.numOfPointer +") != " + "(Math.pow(2, "+globalDepth+" - "+pair.localDepth+") = " +Math.pow(2, globalDepth - pair.localDepth) + ")");
+                throw new RuntimeException();
             }
         }
     }
