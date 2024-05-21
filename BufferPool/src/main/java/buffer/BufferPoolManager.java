@@ -148,8 +148,11 @@ public class BufferPoolManager {
      * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
      */
     public Page fetchPage(int page_id)  {
+        assert page_id >= 0;
         if (pageTable.containsKey(page_id)) {
             Integer frameId = pageTable.get(page_id);
+            replacer.unpin(frameId);
+            pages[frameId].incrPinCount();
             return pages[frameId];
         }
 
@@ -209,20 +212,20 @@ public class BufferPoolManager {
      * @param page_id, the id of the page to fetch
      * @return PageGuard holding the fetched page
      */
-    BasicPageGuard fetchPageBasic(int page_id)  {
+    public BasicPageGuard fetchPageBasic(int page_id)  {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
         return new BasicPageGuard(this, page);
     }
-    BasicPageGuard.ReadPageGuard FetchPageRead(int page_id) {
+    public BasicPageGuard.ReadPageGuard FetchPageRead(int page_id) {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
         page.rLatch(); //获取读锁
         return new BasicPageGuard.ReadPageGuard(this, page);
     }
-    BasicPageGuard.WritePageGuard FetchPageWrite(int page_id)  {
+    public BasicPageGuard.WritePageGuard FetchPageWrite(int page_id)  {
         Page page = fetchPage(page_id);
         if (Objects.isNull(page))
             return null;
@@ -249,21 +252,23 @@ public class BufferPoolManager {
             return false;
         Page page = getPage(page_id);
         page.rLatch();
-        {
+        try {
             if (page.getPinCount() <= 0) {
                 return false;
             }
+        } finally { //如果不使用finally，在上面return后会导致锁不能正确的释放
+            page.rUnLatch();
         }
-        page.rUnLatch();
         page.wLatch();
-        {
+        try {
             if (is_dirty)
                 page.setDirty(true);
             page.decrPinCount();
             if (page.getPinCount() == 0)
                 replacer.unpin(pageTable.get(page_id)); //If the pin count reaches 0, the frame should be evictable by the replacer.
+        } finally {
+            page.wUnLatch();
         }
-        page.wUnLatch();
         return true;
     }
 
