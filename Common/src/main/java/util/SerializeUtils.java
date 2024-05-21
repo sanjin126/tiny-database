@@ -25,6 +25,9 @@ public class SerializeUtils {
     }
 
     public static byte[] deserialize(Object object) throws IOException {
+        if (object == null) {
+            throw new NullPointerException();
+        }
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
             MyOOS oos = new MyOOS(baos)){
             oos.writeObjectOverride(object);

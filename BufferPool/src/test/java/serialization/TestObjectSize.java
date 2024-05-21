@@ -1,21 +1,16 @@
 package serialization;
 
 import annotation.UnsignedInt;
-import config.DBConfig;
 import impletation.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import storage.page.ExtendibleHTableBucketPage;
 import storage.page.ExtendibleHTableDirectoryPage;
 import storage.page.ExtendibleHTableHeaderPage;
-import util.TypeUtils;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Optional;
 
 import static config.DBConfig.BUSTUB_PAGE_SIZE;
 
@@ -48,7 +43,7 @@ public class TestObjectSize {
             Assertions.assertEquals(BUSTUB_PAGE_SIZE, bos.size());
             MyOIS<ExtendibleHTableBucketPage> ois = new MyOIS<ExtendibleHTableBucketPage>(new ByteArrayInputStream(bos.toByteArray()), ExtendibleHTableBucketPage.class, getBucketPage(sizeOfKeyType, sizeOfValType));
             ExtendibleHTableBucketPage bucketPage1 = ois.readObjectOverride();
-            System.out.println(bucketPage1.Size());
+            System.out.println(bucketPage1.size());
         }
     }
 
@@ -65,7 +60,7 @@ public class TestObjectSize {
             Assertions.assertEquals(BUSTUB_PAGE_SIZE, bos.size());
             MyOIS<ExtendibleHTableDirectoryPage> ois = new MyOIS<ExtendibleHTableDirectoryPage>(new ByteArrayInputStream(bos.toByteArray()), ExtendibleHTableDirectoryPage.class, ExtendibleHTableDirectoryPage.class.getConstructor().newInstance());
             ExtendibleHTableDirectoryPage bucketPage1 = ois.readObjectOverride();
-            System.out.println(bucketPage1.Size());
+            System.out.println(bucketPage1.size());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
